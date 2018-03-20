@@ -1,36 +1,42 @@
 package com.ddavey.customers;
 
-import org.hibernate.engine.jdbc.connections.spi.AbstractMultiTenantConnectionProvider;
-import org.hibernate.engine.jdbc.connections.spi.ConnectionProvider;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.context.annotation.ComponentScan;
-import org.springframework.stereotype.Component;
+import javax.sql.DataSource;
 
-@Component
-@ComponentScan(basePackages = "com.ddavey")
-public class CustomerMultiTenentConnectionProvider extends AbstractMultiTenantConnectionProvider {
+import org.hibernate.engine.jdbc.connections.spi.AbstractDataSourceBasedMultiTenantConnectionProviderImpl;
 
-	private static final long serialVersionUID = 4484071460974465834L;
-	@Autowired
-	CustomerService customerService;
+public class CustomerMultiTenentConnectionProvider extends AbstractDataSourceBasedMultiTenantConnectionProviderImpl
+{
 
-	public CustomerMultiTenentConnectionProvider() {
-		initConnectionProvider();
-	}
+    private static final long serialVersionUID = 4484071460974465834L;
+    private DataSource defaultDatasource;
 
-	@Override
-	protected ConnectionProvider getAnyConnectionProvider() {
-		return null;
-	}
+    public CustomerMultiTenentConnectionProvider(DataSource datasource)
+    {
+        this.defaultDatasource = datasource;
+        init();
+    };
 
-	@Override
-	protected ConnectionProvider selectConnectionProvider(String tennantId) {
-		// TODO Auto-generated method stub
-		return null;
-	}
+    public CustomerMultiTenentConnectionProvider()
+    {
+        init();
+    }
 
-	private void initConnectionProvider() {
+    @Override
+    protected DataSource selectAnyDataSource()
+    {
+        // TODO Auto-generated method stub
+        return defaultDatasource;
+    }
 
-	}
+    @Override
+    protected DataSource selectDataSource(String arg0)
+    {
+        // TODO Auto-generated method stub
+        return null;
+    }
+
+    private void init()
+    {
+    }
 
 }

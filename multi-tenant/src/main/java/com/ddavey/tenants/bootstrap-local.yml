@@ -1,0 +1,54 @@
+spring:
+  application:
+    name: client-scoring
+  main:
+    banner-mode: 'off'
+  http:
+    multipart:
+      max-file-size: 1Mb
+      max-request-size: 10Mb
+  boot:
+    admin:
+      client:
+        enabled: false
+  datasource:
+    url: jdbc:postgresql://localhost:5432/experian
+    username: postgres
+    password: Qwerty123
+    driver-class-name: org.postgresql.Driver
+server:
+  port: ${APP_PORT:9200}
+  context-path: /client-scoring-api/v1
+  tomcat:
+    basedir: /var/log/nginx
+    accesslog:
+      enabled: true
+      buffered: false
+      directory: healthd
+      prefix: application.log
+      suffix: null
+      file-date-format: .yyyy-MM-dd-HH
+      pattern: '%{sec}t.%{msec_frac}t"%U"%s"%T"%T"%{x-forwarded-for}i'
+management:
+  port: ${ADMIN_PORT:9201}
+  security:
+    enabled: false
+logging:
+  path: /var/log
+  level:
+    root: info
+    com.esure.api: info
+application:
+  name: client-scoring
+  version: 1.0
+  description: API for Client Scoring service
+  license: License Details
+  licenseUrl: http://www.esure.com/licenses/LICENSE-2.0.html
+  termsOfServiceUrl: http://www.esure.com
+  createdBy: Esure Api Team
+  seeMoreAtApi: xxxxxxxxxx
+  contactTheDeveloper: api-dev@esure.com
+client-scoring:
+  client-scoring-service-url: http://10.20.139.19:7014/clientscoringservice/clientscoringservice
+  quote-offset-in-days: 45
+  policy-offset-in-months: 13
