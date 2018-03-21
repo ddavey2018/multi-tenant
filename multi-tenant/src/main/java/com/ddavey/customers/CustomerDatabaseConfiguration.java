@@ -5,8 +5,6 @@ import java.util.Map;
 
 import javax.annotation.Resource;
 import javax.persistence.EntityManagerFactory;
-import javax.persistence.spi.PersistenceUnitInfo;
-import javax.sql.DataSource;
 
 import org.hibernate.MultiTenancyStrategy;
 import org.springframework.context.annotation.Bean;
@@ -29,87 +27,72 @@ import org.springframework.transaction.annotation.EnableTransactionManagement;
 @PropertySource("classpath:application.properties")
 @EnableTransactionManagement
 @EnableJpaRepositories("com.ddavey.customers")
-@ComponentScan(basePackages =
-{ "com.ddavey.customers" })
+@ComponentScan(basePackages = { "com.ddavey.customers" })
 @Order(1)
-public class CustomerDatabaseConfiguration
-{
+public class CustomerDatabaseConfiguration {
 
-    @Resource
-    private Environment env;
+	@Resource
+	private Environment env;
 
-    @Primary
-    @Bean("entityManagerFactory")
-    public LocalContainerEntityManagerFactoryBean customerEntityManagerFactory()
-    {
-        LocalContainerEntityManagerFactoryBean em = new LocalContainerEntityManagerFactoryBean()
-        {
+	@Primary
+	@Bean("entityManagerFactory")
+	public LocalContainerEntityManagerFactoryBean customerEntityManagerFactory() {
+		LocalContainerEntityManagerFactoryBean em = new LocalContainerEntityManagerFactoryBean();
+		em.setPackagesToScan(new String[] { "com.ddavey.customers" });
 
-            @Override
-            protected void postProcessEntityManagerFactory(EntityManagerFactory emf, PersistenceUnitInfo pui)
-            {
-                super.postProcessEntityManagerFactory(emf, pui);
-            }
+		em.setJpaVendorAdapter(new HibernateJpaVendorAdapter());
+		em.setJpaPropertyMap(additionalProperties());
+		return em;
+	}
 
-        };
-        em.setPackagesToScan(new String[]
-        { "com.ddavey.customers" });
+	// @Bean
+	@Primary
+	public DriverManagerDataSource datasource() {
+		DriverManagerDataSource datasource = new DriverManagerDataSource();
+		datasource.setDriverClassName(env.getRequiredProperty("spring.datasource.driver-class-name"));
+		datasource.setUrl(env.getRequiredProperty("spring.datasource.url"));
+		datasource.setUsername(env.getRequiredProperty("spring.datasource.username"));
+		datasource.setPassword(env.getProperty("spring.datasource.password"));
+		return datasource;
+	}
 
-        em.setJpaVendorAdapter(new HibernateJpaVendorAdapter());
-        em.setJpaPropertyMap(additionalProperties());
-        return em;
-    }
+	@Bean
+	@Primary
+	public PlatformTransactionManager customerTransactionManager(EntityManagerFactory emf) {
+		JpaTransactionManager transactionManager = new JpaTransactionManager();
+		transactionManager.setEntityManagerFactory(emf);
+		return transactionManager;
+	}
 
-    // @Bean
-    @Primary
-    public DataSource datasource()
-    {
-        DriverManagerDataSource datasource = new DriverManagerDataSource();
-        datasource.setDriverClassName(env.getRequiredProperty("spring.datasource.driver-class-name"));
-        datasource.setUrl(env.getRequiredProperty("spring.datasource.url"));
-        datasource.setUsername(env.getRequiredProperty("spring.datasource.username"));
-        datasource.setPassword(env.getProperty("spring.datasource.password"));
-        return datasource;
-    }
+	@Bean
+	public PersistenceExceptionTranslationPostProcessor exceptionTranslation() {
+		return new PersistenceExceptionTranslationPostProcessor();
+	}
 
-    @Bean
-    @Primary
-    public PlatformTransactionManager customerTransactionManager(EntityManagerFactory emf)
-    {
-        JpaTransactionManager transactionManager = new JpaTransactionManager();
-        transactionManager.setEntityManagerFactory(emf);
-        return transactionManager;
-    }
+	@Bean
+	public CustomerMultiTenentConnectionProvider customerConnectionProvider(MultiTenantIdentifierResolver resolver) {
+		return new CustomerMultiTenentConnectionProvider(datasource(), resolver, env);
+	}
 
-    @Bean
-    public PersistenceExceptionTranslationPostProcessor exceptionTranslation()
-    {
-        return new PersistenceExceptionTranslationPostProcessor();
-    }
+	@Bean
+	public MultiTenantIdentifierResolver tenantResolver() {
+		return new MultiTenantIdentifierResolver();
+	}
 
-    @Bean
-    public CustomerMultiTenentConnectionProvider customerConnectionProvider()
-    {
-        return new CustomerMultiTenentConnectionProvider(datasource());
-    }
+	Map<String, Object> additionalProperties()
 
-    @Bean
-    public MultiTenantIdentifierResolver tenantResolver()
-    {
-        return new MultiTenantIdentifierResolver();
-    }
+	{
+		Map<String, Object> properties = new LinkedHashMap<String, Object>();
+		properties.put(org.hibernate.cfg.Environment.HBM2DDL_AUTO, "update");
+		properties.put(org.hibernate.cfg.Environment.SHOW_SQL, true);
+		properties.put(org.hibernate.cfg.Environment.DIALECT,
+				env.getProperty("spring.jpa.properties.hibernate.dialect"));
+		MultiTenantIdentifierResolver resolver = tenantResolver();
+		properties.put(org.hibernate.cfg.Environment.MULTI_TENANT_CONNECTION_PROVIDER,
+				customerConnectionProvider(resolver));
 
-    Map<String, Object> additionalProperties()
-
-    {
-        Map<String, Object> properties = new LinkedHashMap<String, Object>();
-        properties.put(org.hibernate.cfg.Environment.HBM2DDL_AUTO, "update");
-        properties.put(org.hibernate.cfg.Environment.SHOW_SQL, true);
-        properties.put(org.hibernate.cfg.Environment.DIALECT,
-                env.getProperty("spring.jpa.properties.hibernate.dialect"));
-        properties.put(org.hibernate.cfg.Environment.MULTI_TENANT_CONNECTION_PROVIDER, customerConnectionProvider());
-        properties.put(org.hibernate.cfg.Environment.MULTI_TENANT_IDENTIFIER_RESOLVER, tenantResolver());
-        properties.put(org.hibernate.cfg.Environment.MULTI_TENANT, MultiTenancyStrategy.DATABASE);
-        return properties;
-    }
+		properties.put(org.hibernate.cfg.Environment.MULTI_TENANT_IDENTIFIER_RESOLVER, resolver);
+		properties.put(org.hibernate.cfg.Environment.MULTI_TENANT, MultiTenancyStrategy.DATABASE);
+		return properties;
+	}
 }
