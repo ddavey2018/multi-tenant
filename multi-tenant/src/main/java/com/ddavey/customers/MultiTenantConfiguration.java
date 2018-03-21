@@ -7,6 +7,7 @@ import javax.annotation.Resource;
 import javax.persistence.EntityManagerFactory;
 
 import org.hibernate.MultiTenancyStrategy;
+import org.jboss.logging.Logger;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.Configuration;
@@ -35,7 +36,7 @@ import org.springframework.transaction.annotation.EnableTransactionManagement;
 @Order(2)
 public class MultiTenantConfiguration
 {
-
+    private final Logger logger = Logger.getLogger(this.getClass());
     @Resource
     private Environment env;
 
@@ -43,8 +44,17 @@ public class MultiTenantConfiguration
     public LocalContainerEntityManagerFactoryBean customerEntityManagerFactory()
     {
         LocalContainerEntityManagerFactoryBean em = new LocalContainerEntityManagerFactoryBean();
-        em.setPackagesToScan(new String[]
-        { "com.ddavey.entity" });
+        String appName = env.getProperty("spring.application.name", "");
+
+        String packagesToScan = "com.ddavey" + (appName.length() > 0 ? "." + appName : "");
+        if (appName.length() == 0)
+        {
+            logger.warnv("No application name set, falling back to package scan %s for entityManagerFactory2",
+                    new Object[]
+                    { packagesToScan });
+        }
+
+        em.setPackagesToScan(packagesToScan);
         em.setJpaVendorAdapter(new HibernateJpaVendorAdapter());
         em.setDataSource(datasource());
         em.setJpaPropertyMap(additionalProperties());

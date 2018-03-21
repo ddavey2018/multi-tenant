@@ -58,7 +58,7 @@ public class CustomerMultiTenentConnectionProvider extends AbstractDataSourceBas
 
     private void init()
     {
-
+        constructDefaultDatasource();
         Integer[] customerIds = customerService.getCustomerIds();
 
         for (Integer customerId : customerIds)
@@ -67,18 +67,12 @@ public class CustomerMultiTenentConnectionProvider extends AbstractDataSourceBas
             System.out.println(String.format("Connection to cutomer db %d", customerId.intValue()));
         }
 
-        if (customerIds.length == 0)
-        {
-            constructDefaultDatasource();
-        }
     }
 
-    private void constructDefaultDatasource()
+    private DriverManagerDataSource constructDefaultDatasource()
     {
-        this.defaultDatasource = new DriverManagerDataSource(env.getRequiredProperty("spring.datasource.url"),
-                env.getRequiredProperty("spring.datasource.username"),
-                env.getRequiredProperty("spring.datasource.password"));
-        this.defaultDatasource.setDriverClassName(env.getRequiredProperty("spring.datasource.driver-class-name"));
+        this.defaultDatasource = createTenantDatasource(1);
+        return this.defaultDatasource;
     }
 
     private DriverManagerDataSource createTenantDatasource(Integer tenantId)
@@ -102,7 +96,9 @@ public class CustomerMultiTenentConnectionProvider extends AbstractDataSourceBas
     {
         LocalContainerEntityManagerFactoryBean emfBean = new LocalContainerEntityManagerFactoryBean();
         emfBean.setDataSource(tenantDatasource);
-        emfBean.setPackagesToScan("com.ddavey.entity");
+        String appName = env.getProperty("spring.application.name", "");
+        String packagesToScan = "com.ddavey" + (appName.length() > 0 ? "." + appName : "");
+        emfBean.setPackagesToScan(packagesToScan);
         emfBean.setJpaVendorAdapter(new HibernateJpaVendorAdapter());
         emfBean.setPersistenceProviderClass(HibernatePersistenceProvider.class);
         Map<String, Object> properties = new HashMap<>();
@@ -116,7 +112,7 @@ public class CustomerMultiTenentConnectionProvider extends AbstractDataSourceBas
          */
         properties.put("hibernate.ejb.naming_strategy", "org.hibernate.cfg.ImprovedNamingStrategy");
         properties.put(org.hibernate.cfg.Environment.DIALECT,
-                env.getProperty(org.hibernate.cfg.Environment.DIALECT, "org.hibernate.dialect.MySQL5Dialect"));
+                env.getRequiredProperty(org.hibernate.cfg.Environment.DIALECT));
         properties.put(org.hibernate.cfg.Environment.SHOW_SQL,
                 env.getProperty(org.hibernate.cfg.Environment.SHOW_SQL, "true"));
         properties.put(org.hibernate.cfg.Environment.FORMAT_SQL,
