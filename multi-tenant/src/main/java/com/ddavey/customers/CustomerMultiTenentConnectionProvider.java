@@ -25,21 +25,11 @@ public class CustomerMultiTenentConnectionProvider extends AbstractDataSourceBas
     private DriverManagerDataSource defaultDatasource;
     private Map<Integer, DataSource> customerDatasources = new HashMap<Integer, DataSource>();
 
-    private MultiTenantIdentifierResolver resolver;
     @Resource
     private Environment env;
 
     @Autowired
     private CustomerService customerService;
-
-    public CustomerMultiTenentConnectionProvider(DriverManagerDataSource datasource,
-            MultiTenantIdentifierResolver resolver, Environment env)
-    {
-        this.resolver = resolver;
-        this.defaultDatasource = datasource;
-        this.env = env;
-        init();
-    };
 
     public CustomerMultiTenentConnectionProvider()
     {
@@ -58,7 +48,12 @@ public class CustomerMultiTenentConnectionProvider extends AbstractDataSourceBas
     @Override
     protected DataSource selectDataSource(String tenantId)
     {
-        return customerDatasources.get(Integer.valueOf(tenantId));
+        Integer iTenantId = Integer.valueOf(tenantId);
+        if (!customerDatasources.containsKey(iTenantId))
+        {
+            customerDatasources.put(iTenantId, createTenantDatasource(iTenantId));
+        }
+        return customerDatasources.get(iTenantId);
     }
 
     private void init()
@@ -86,21 +81,28 @@ public class CustomerMultiTenentConnectionProvider extends AbstractDataSourceBas
         this.defaultDatasource.setDriverClassName(env.getRequiredProperty("spring.datasource.driver-class-name"));
     }
 
+    private DriverManagerDataSource createTenantDatasource(Integer tenantId)
+    {
+        String url = String.join(String.format("_%d?", tenantId),
+                env.getRequiredProperty("spring.datasource.url").split("\\?"));
+        DriverManagerDataSource tenantDatasource = new DriverManagerDataSource(url,
+                env.getRequiredProperty("spring.datasource.username"),
+                env.getRequiredProperty("spring.datasource.password"));
+        tenantDatasource.setDriverClassName(env.getRequiredProperty("spring.datasource.driver-class-name"));
+        return tenantDatasource;
+    }
+
     private void addTenant(Integer tenantId)
     {
-        DriverManagerDataSource copyDatasource = (DriverManagerDataSource) this.defaultDatasource;
-        String url = String.join(String.format("_%d?", tenantId), copyDatasource.getUrl().split("\\?"));
-        DriverManagerDataSource tenantDatasource = new DriverManagerDataSource(url, copyDatasource.getUsername(),
-                copyDatasource.getPassword());
-        customerDatasources.put(tenantId, tenantDatasource);
-        entityManagerFactory(tenantDatasource, tenantId);
+
+        entityManagerFactory(createTenantDatasource(tenantId), tenantId);
     }
 
     private void entityManagerFactory(DriverManagerDataSource tenantDatasource, Integer tenantId)
     {
         LocalContainerEntityManagerFactoryBean emfBean = new LocalContainerEntityManagerFactoryBean();
         emfBean.setDataSource(tenantDatasource);
-        emfBean.setPackagesToScan("com.ddavey");
+        emfBean.setPackagesToScan("com.ddavey.entity");
         emfBean.setJpaVendorAdapter(new HibernateJpaVendorAdapter());
         emfBean.setPersistenceProviderClass(HibernatePersistenceProvider.class);
         Map<String, Object> properties = new HashMap<>();
@@ -112,7 +114,6 @@ public class CustomerMultiTenentConnectionProvider extends AbstractDataSourceBas
          * properties.put(org.hibernate.cfg.Environment.
          * MULTI_TENANT_IDENTIFIER_RESOLVER, resolver);
          */
-        String a = org.hibernate.cfg.Environment.HBM2DDL_AUTO;
         properties.put("hibernate.ejb.naming_strategy", "org.hibernate.cfg.ImprovedNamingStrategy");
         properties.put(org.hibernate.cfg.Environment.DIALECT,
                 env.getProperty(org.hibernate.cfg.Environment.DIALECT, "org.hibernate.dialect.MySQL5Dialect"));

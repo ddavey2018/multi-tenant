@@ -44,10 +44,11 @@ public class MultiTenantConfiguration
     {
         LocalContainerEntityManagerFactoryBean em = new LocalContainerEntityManagerFactoryBean();
         em.setPackagesToScan(new String[]
-        { "com.ddavey.somthingelse" });
+        { "com.ddavey.entity" });
         em.setJpaVendorAdapter(new HibernateJpaVendorAdapter());
-
+        em.setDataSource(datasource());
         em.setJpaPropertyMap(additionalProperties());
+        em.afterPropertiesSet();
         return em;
     }
 

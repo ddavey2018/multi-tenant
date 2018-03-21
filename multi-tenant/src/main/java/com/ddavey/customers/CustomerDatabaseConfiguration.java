@@ -45,7 +45,7 @@ public class CustomerDatabaseConfiguration
         em.setDataSource(datasource());
         em.setJpaVendorAdapter(new HibernateJpaVendorAdapter());
         em.setJpaPropertyMap(additionalProperties());
-
+        em.afterPropertiesSet();
         return em;
     }
 
