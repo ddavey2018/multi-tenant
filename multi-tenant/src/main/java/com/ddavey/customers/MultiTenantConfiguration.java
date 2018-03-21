@@ -6,10 +6,11 @@ import java.util.Map;
 import javax.annotation.Resource;
 import javax.persistence.EntityManagerFactory;
 
+import org.hibernate.MultiTenancyStrategy;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.context.annotation.Primary;
+import org.springframework.context.annotation.FilterType;
 import org.springframework.context.annotation.PropertySource;
 import org.springframework.core.annotation.Order;
 import org.springframework.core.env.Environment;
@@ -25,32 +26,31 @@ import org.springframework.transaction.annotation.EnableTransactionManagement;
 @Configuration
 @PropertySource("classpath:application.properties")
 @EnableTransactionManagement
-@EnableJpaRepositories("com.ddavey.customers")
+@EnableJpaRepositories(basePackages = "com.ddavey", excludeFilters =
+{ @ComponentScan.Filter(type = FilterType.ASSIGNABLE_TYPE, value = CustomerRepository.class) })
 @ComponentScan(basePackages =
-{ "com.ddavey.customers" })
-@Order(1)
-public class CustomerDatabaseConfiguration
+{ "com.ddavey" }, excludeFilters =
+{ @ComponentScan.Filter(type = FilterType.ASSIGNABLE_TYPE, value =
+        { CustomerServiceImpl.class, CustomerRepository.class }) })
+@Order(2)
+public class MultiTenantConfiguration
 {
 
     @Resource
     private Environment env;
 
-    @Primary
-    @Bean("entityManagerFactory")
+    @Bean("entityManagerFactory2")
     public LocalContainerEntityManagerFactoryBean customerEntityManagerFactory()
     {
         LocalContainerEntityManagerFactoryBean em = new LocalContainerEntityManagerFactoryBean();
         em.setPackagesToScan(new String[]
-        { "com.ddavey.customers" });
-        em.setDataSource(datasource());
+        { "com.ddavey.somthingelse" });
         em.setJpaVendorAdapter(new HibernateJpaVendorAdapter());
-        em.setJpaPropertyMap(additionalProperties());
 
+        em.setJpaPropertyMap(additionalProperties());
         return em;
     }
 
-    @Bean
-    @Primary
     public DriverManagerDataSource datasource()
     {
         DriverManagerDataSource datasource = new DriverManagerDataSource();
@@ -61,8 +61,7 @@ public class CustomerDatabaseConfiguration
         return datasource;
     }
 
-    @Bean
-    @Primary
+    @Bean(name = "transactionManager")
     public PlatformTransactionManager customerTransactionManager(EntityManagerFactory emf)
     {
         JpaTransactionManager transactionManager = new JpaTransactionManager();
@@ -76,15 +75,19 @@ public class CustomerDatabaseConfiguration
         return new PersistenceExceptionTranslationPostProcessor();
     }
 
-    /*
-     * @Bean public CustomerMultiTenentConnectionProvider
-     * customerConnectionProvider(MultiTenantIdentifierResolver resolver) {
-     * return new CustomerMultiTenentConnectionProvider(datasource(), resolver,
-     * env); }
-     * 
-     * @Bean public MultiTenantIdentifierResolver tenantResolver() { return new
-     * MultiTenantIdentifierResolver(); }
-     */
+    @Bean
+    public CustomerMultiTenentConnectionProvider customerConnectionProvider()
+    {
+        // return new CustomerMultiTenentConnectionProvider(datasource(),
+        // resolver, env);
+        return new CustomerMultiTenentConnectionProvider();
+    }
+
+    @Bean
+    public MultiTenantIdentifierResolver tenantResolver()
+    {
+        return new MultiTenantIdentifierResolver();
+    }
 
     Map<String, Object> additionalProperties()
 
@@ -94,17 +97,11 @@ public class CustomerDatabaseConfiguration
         properties.put(org.hibernate.cfg.Environment.SHOW_SQL, true);
         properties.put(org.hibernate.cfg.Environment.DIALECT,
                 env.getProperty("spring.jpa.properties.hibernate.dialect"));
-        /*
-         * MultiTenantIdentifierResolver resolver = tenantResolver();
-         * properties.put(org.hibernate.cfg.Environment.
-         * MULTI_TENANT_CONNECTION_PROVIDER,
-         * customerConnectionProvider(resolver));
-         * 
-         * properties.put(org.hibernate.cfg.Environment.
-         * MULTI_TENANT_IDENTIFIER_RESOLVER, resolver);
-         * properties.put(org.hibernate.cfg.Environment.MULTI_TENANT,
-         * MultiTenancyStrategy.DATABASE);
-         */
+        MultiTenantIdentifierResolver resolver = tenantResolver();
+        properties.put(org.hibernate.cfg.Environment.MULTI_TENANT_CONNECTION_PROVIDER, customerConnectionProvider());
+
+        properties.put(org.hibernate.cfg.Environment.MULTI_TENANT_IDENTIFIER_RESOLVER, resolver);
+        properties.put(org.hibernate.cfg.Environment.MULTI_TENANT, MultiTenancyStrategy.DATABASE);
         return properties;
     }
 }
