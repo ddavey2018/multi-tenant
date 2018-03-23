@@ -1,4 +1,4 @@
-package com.ddavey.entity;
+package com.entity;
 
 import javax.persistence.Entity;
 import javax.persistence.Id;

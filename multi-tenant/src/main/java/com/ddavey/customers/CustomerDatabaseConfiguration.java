@@ -6,6 +6,7 @@ import java.util.Map;
 import javax.annotation.Resource;
 import javax.persistence.EntityManagerFactory;
 
+import org.jboss.logging.Logger;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.Configuration;
@@ -25,13 +26,16 @@ import org.springframework.transaction.annotation.EnableTransactionManagement;
 @Configuration
 @PropertySource("classpath:application.properties")
 @EnableTransactionManagement
-@EnableJpaRepositories("com.ddavey.customers")
+@EnableJpaRepositories(basePackages =
+{ "com.ddavey.customers" },
+        entityManagerFactoryRef = "entityManagerFactory",
+        transactionManagerRef = "transactionManager")
 @ComponentScan(basePackages =
 { "com.ddavey.customers" })
 @Order(1)
 public class CustomerDatabaseConfiguration
 {
-
+    private Logger logger = Logger.getLogger(CustomerDatabaseConfiguration.class);
     @Resource
     private Environment env;
 
@@ -41,16 +45,30 @@ public class CustomerDatabaseConfiguration
     {
         LocalContainerEntityManagerFactoryBean em = new LocalContainerEntityManagerFactoryBean();
         em.setPackagesToScan(new String[]
-        { "com.ddavey.customers" });
+        { CustomerEntity.class.getPackage().getName() });
         em.setDataSource(datasource());
+        em.setPersistenceUnitName("customers");
         em.setJpaVendorAdapter(new HibernateJpaVendorAdapter());
         em.setJpaPropertyMap(additionalProperties());
         em.afterPropertiesSet();
+        setApplicationEntityPackageScanVariable();
         return em;
     }
 
-    @Bean
-    @Primary
+    private void setApplicationEntityPackageScanVariable()
+    {
+        String appName = env.getProperty("spring.application.name", "");
+        String packagesToScan = "com.ddavey" + (appName.length() > 0 ? "." + appName : "");
+        if (appName.length() == 0)
+        {
+            logger.warnv("No application name set, falling back to package scan %s for tenantEntityManagerFactory",
+                    new Object[]
+                    { packagesToScan });
+        }
+        System.setProperty("entityPackageScan", packagesToScan);
+    }
+
+    @Bean("customerDatasource")
     public DriverManagerDataSource datasource()
     {
         DriverManagerDataSource datasource = new DriverManagerDataSource();
@@ -61,8 +79,7 @@ public class CustomerDatabaseConfiguration
         return datasource;
     }
 
-    @Bean
-    @Primary
+    @Bean("transactionManager")
     public PlatformTransactionManager customerTransactionManager(EntityManagerFactory emf)
     {
         JpaTransactionManager transactionManager = new JpaTransactionManager();
@@ -76,16 +93,6 @@ public class CustomerDatabaseConfiguration
         return new PersistenceExceptionTranslationPostProcessor();
     }
 
-    /*
-     * @Bean public CustomerMultiTenentConnectionProvider
-     * customerConnectionProvider(MultiTenantIdentifierResolver resolver) {
-     * return new CustomerMultiTenentConnectionProvider(datasource(), resolver,
-     * env); }
-     * 
-     * @Bean public MultiTenantIdentifierResolver tenantResolver() { return new
-     * MultiTenantIdentifierResolver(); }
-     */
-
     Map<String, Object> additionalProperties()
 
     {
@@ -94,17 +101,6 @@ public class CustomerDatabaseConfiguration
         properties.put(org.hibernate.cfg.Environment.SHOW_SQL, true);
         properties.put(org.hibernate.cfg.Environment.DIALECT,
                 env.getProperty("spring.jpa.properties.hibernate.dialect"));
-        /*
-         * MultiTenantIdentifierResolver resolver = tenantResolver();
-         * properties.put(org.hibernate.cfg.Environment.
-         * MULTI_TENANT_CONNECTION_PROVIDER,
-         * customerConnectionProvider(resolver));
-         * 
-         * properties.put(org.hibernate.cfg.Environment.
-         * MULTI_TENANT_IDENTIFIER_RESOLVER, resolver);
-         * properties.put(org.hibernate.cfg.Environment.MULTI_TENANT,
-         * MultiTenancyStrategy.DATABASE);
-         */
         return properties;
     }
 }

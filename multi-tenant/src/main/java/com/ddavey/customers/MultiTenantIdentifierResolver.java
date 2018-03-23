@@ -1,7 +1,9 @@
 package com.ddavey.customers;
 
 import org.hibernate.context.spi.CurrentTenantIdentifierResolver;
+import org.springframework.stereotype.Component;
 
+@Component
 public class MultiTenantIdentifierResolver implements CurrentTenantIdentifierResolver
 {
 
